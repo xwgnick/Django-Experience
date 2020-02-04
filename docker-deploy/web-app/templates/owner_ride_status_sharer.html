@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+
+{% block title %}Ride Details{% endblock %}
+
+{% block content %}
+
+<p>Ride Details</p>
+
+<p>Ride Owner: {{owner_name}}</p>
+<p>Driver: {{driver}}</p>
+<p>Sharer: {{sharer}}</p>
+<p>Destination: {{destination}}</p>
+<p>Passenger Number: {{num_pass}} (Sharing with {{num_sharer_pass}} people)</p>
+<p>Ride Status: {{ride_status}}</p>
+{% endblock %}
