@@ -29,20 +29,23 @@ def signup(request):
             return redirect('login')
     else:
         form = SignupForm()
-    return render(request, 'signup.html', context={'form': form})
+    return render(request, 'Ride_Share/signup.html', context={'form': form})
 
 
 @login_required(login_url='../accounts/login/')
 def edit_profile(request):
     user = get_object_or_404(MyUser, pk=request.user.id)
+    has_taken_ride = False
+    if user.plate_num and Ride.objects.filter(driver=request.user).exclude(ride_status='cop'):
+        has_taken_ride = True
     if request.method == 'POST':
-        if not user.plate_num:
+        if not user.plate_num or has_taken_ride:
             form = UserProfileEditForm(request.POST)
         else:
             form = DriverProfileEditForm(request.POST)
         if form.is_valid():
             user.email = form.cleaned_data['email']
-            if user.plate_num:
+            if user.plate_num and not has_taken_ride:
                 todelete = get_object_or_404(Vehicle, pk=user.plate_num.plate_num)
                 todelete.delete()
                 vehicle = Vehicle()
@@ -52,15 +55,16 @@ def edit_profile(request):
                 vehicle.save()
                 user.plate_num = vehicle 
             user.save()
-            return render(request, 'profile_changed.html')
+            return render(request, 'Ride_Share/profile_changed.html')
     else:
-        if not user.plate_num:
+        if not user.plate_num or has_taken_ride:
             form = UserProfileEditForm(initial={'email': user.email,})
         else:
             form = DriverProfileEditForm(initial={
                 'email': user.email, 'plate_num': user.plate_num.plate_num, 
                 'vehicle_type': user.plate_num.type})
-    return render(request, 'profile.html', {'form': form, 'user': user})
+    return render(request, 'Ride_Share/profile.html', {
+        'form': form, 'user': user, 'has_taken_ride': has_taken_ride})
 
 
 @login_required(login_url='../accounts/login/')
@@ -83,11 +87,11 @@ def create_ride(request):
         proposed_pickup_time = timezone.now()
         form = RideCreationForm(initial={'pickup_time': proposed_pickup_time, 'owner_pass_num': 1,})
     
-    return render(request, 'create_ride.html', {'form': form, 'ride':ride})
+    return render(request, 'Ride_Share/create_ride.html', {'form': form, 'ride':ride})
 
 
 def home(request):
-    return render(request, "home.html")
+    return render(request, "Ride_Share/home.html")
 
 
 @login_required(login_url='../accounts/login/')
@@ -114,7 +118,7 @@ def join_ride(request):
                 'number_of_passengers': 1,
             }
         )
-    return render(request, 'join_ride.html', context={'form': form})
+    return render(request, 'Ride_Share/join_ride.html', context={'form': form})
 
 
 # def take_ride(request):
@@ -122,7 +126,7 @@ def join_ride(request):
 
 
 def ride_created(request):
-    return render(request, "ride_created.html")
+    return render(request, "Ride_Share/ride_created.html")
 
 
 @login_required(login_url='../accounts/login/')
@@ -137,7 +141,7 @@ def search_result(request):
         avail_seats__gte=sharer.pass_num,
     ).exclude(owner=request.user).exclude(share_id=request.user).exclude(driver=request.user).order_by('ride_status')
     if sharearable_rides.exists() == False:
-        return render(request, "no_search_result.html")
+        return render(request, "Ride_Share/no_search_result.html")
     page = request.GET.get('page', 1)
     paginator = Paginator(sharearable_rides, 3)
     try:
@@ -147,14 +151,14 @@ def search_result(request):
     except EmptyPage:
         sharearable_rides = paginator.page(paginator.num_pages)
     return render(
-        request, "search_result.html", context={'sharearable_rides': sharearable_rides})
+        request, "Ride_Share/search_result.html", context={'sharearable_rides': sharearable_rides})
         
 
 @login_required(login_url='../accounts/login/')
 def check_owned_rides(request):
     owned_rides = Ride.objects.filter(owner=request.user).exclude(ride_status="cop").order_by('ride_status')
     if owned_rides.exists() == False:
-        return render(request, "no_owned_rides.html")
+        return render(request, "Ride_Share/no_owned_rides.html")
     page = request.GET.get('page', 1)
     paginator = Paginator(owned_rides, 3)
     try:
@@ -163,14 +167,14 @@ def check_owned_rides(request):
         owned_rides = paginator.page(1)
     except EmptyPage:
         owned_rides = paginator.page(paginator.num_pages)
-    return render(request, "owned_rides.html", context={'owned_rides': owned_rides})
+    return render(request, "Ride_Share/owned_rides.html", context={'owned_rides': owned_rides})
 
 
 @login_required(login_url='../accounts/login/')
 def check_owned_rides_history(request):
     owned_rides = Ride.objects.filter(owner=request.user, ride_status="cop").order_by('pickup_time')
     if owned_rides.exists() == False:
-        return render(request, "no_owned_rides.html")
+        return render(request, "Ride_Share/no_owned_rides.html")
     page = request.GET.get('page', 1)
     paginator = Paginator(owned_rides, 3)
     try:
@@ -179,7 +183,7 @@ def check_owned_rides_history(request):
         owned_rides = paginator.page(1)
     except EmptyPage:
         owned_rides = paginator.page(paginator.num_pages)
-    return render(request, "owned_rides_history.html", context={'owned_rides': owned_rides})
+    return render(request, "Ride_Share/owned_rides_history.html", context={'owned_rides': owned_rides})
 
 
 @login_required(login_url='../accounts/login/')
@@ -191,7 +195,7 @@ def check_sharing_rides(request):
     #     return render(request, "no_sharing_rides.html")
     sharing_rides = Ride.objects.filter(share_id=request.user).exclude(ride_status="cop").order_by('ride_status')
     if not sharing_rides.exists():
-        return render(request, "no_sharing_rides.html")
+        return render(request, "Ride_Share/no_sharing_rides.html")
     page = request.GET.get('page', 1)
     paginator = Paginator(sharing_rides, 3)
     try:
@@ -200,7 +204,7 @@ def check_sharing_rides(request):
         sharing_rides = paginator.page(1)
     except EmptyPage:
         sharing_rides = paginator.page(paginator.num_pages)
-    return render(request, "sharing_rides.html", context={'sharing_rides': sharing_rides})
+    return render(request, "Ride_Share/sharing_rides.html", context={'sharing_rides': sharing_rides})
 
 
 @login_required(login_url='../accounts/login/')
@@ -219,7 +223,7 @@ def into_ride(request, joining_ride_id):
     #     registeredSharer = RegisteredSharer(registered_sharer_id=request.user)
     #     registeredSharer.save()
     
-    return render(request, "successfully_joined.html")
+    return render(request, "Ride_Share/successfully_joined.html")
 
 
 @login_required(login_url='../accounts/login/')
@@ -236,11 +240,11 @@ def driver_registration(request):
             # vehicle = get_object_or_404(Vehicle, pk=form.cleaned_data['plate_num'])
             user.plate_num = vehicle
             user.save()
-            return render(request, 'driver_register_succeed.html')
+            return render(request, 'Ride_Share/driver_register_succeed.html')
     else:
         form = driverRegistrationForm()
     
-    return render(request, 'driver_registration.html', context={'form':form})
+    return render(request, 'Ride_Share/driver_registration.html', context={'form':form})
 
 
 @login_required(login_url='../accounts/login/')
@@ -251,7 +255,7 @@ def search_takeable_rides(request):
         vehicle_type=vehicle.type, driver__isnull=True).exclude(owner=request.user).exclude(
             share_id__exact=request.user).exclude(ride_status="cop").order_by('ride_status')
     if takeable_rides.exists() == False:
-        return render(request, "no_takable_rides.html")
+        return render(request, "Ride_Share/no_takable_rides.html")
     page = request.GET.get('page', 1)
     paginator = Paginator(takeable_rides, 3)
     try:
@@ -260,7 +264,7 @@ def search_takeable_rides(request):
         takeable_rides = paginator.page(1)
     except EmptyPage:
         takeable_rides = paginator.page(paginator.num_pages)
-    return render(request, 'takeable_rides.html', context={'takeable_rides':takeable_rides})
+    return render(request, 'Ride_Share/takeable_rides.html', context={'takeable_rides':takeable_rides})
 
 
 @login_required(login_url='../accounts/login/')
@@ -307,7 +311,7 @@ def take_ride(request, take_ride_id):
             fail_silently=False,
         )
     
-    return render(request, "successfully_taken.html")
+    return render(request, "Ride_Share/successfully_taken.html")
 
 
 @login_required(login_url='../accounts/login/')
@@ -331,14 +335,14 @@ def owned_ride_status(request, ride_id):
     pickup_time = owned_ride_status.pickup_time
 
     if owned_ride_status.sharable == True:
-        return render(request, 'owner_ride_status_sharer.html', 
+        return render(request, 'Ride_Share/owner_ride_status_sharer.html', 
                     context={'owner_name': owner_name, 'driver': driver,
                                 'sharer': sharer, 'destination': destination,
                                 'num_pass':num_pass, 'num_sharer_pass':num_sharer_pass,
                                 'num_owner_pass': num_owner_pass,
                                 'ride_status':ride_status, 'pickup_time': pickup_time})
     else:
-         return render(request, 'owner_ride_status_no_sharer.html', 
+         return render(request, 'Ride_Share/owner_ride_status_no_sharer.html', 
                     context={'owner_name': owner_name, 'driver': driver,
                                 'destination': destination,
                                 'num_pass':num_pass,
@@ -360,14 +364,14 @@ def edit_owner_ride(request, ride_id):
             ride.vehicle_type = form.cleaned_data['vehicle_type']
             ride.avail_seats = VT2CAP[ride.vehicle_type] - 1 - ride.actual_pass_num
             ride.save()
-            return render(request, 'edit_successfully.html')
+            return render(request, 'Ride_Share/edit_successfully.html')
     else:
         proposed_pickup_time = timezone.now()
         form = RideCreationForm(initial={'dest': ride.dest, 'pickup_time': ride.pickup_time, 
                                          'owner_pass_num': ride.owner_pass_num, 'sharable': ride.sharable,
                                          'vehicle_type': ride.vehicle_type})
     
-    return render(request, 'edit_owner_ride.html', {'form': form, 'ride':ride})
+    return render(request, 'Ride_Share/edit_owner_ride.html', {'form': form, 'ride':ride})
 
 
 @login_required(login_url='../accounts/login/')
@@ -375,7 +379,7 @@ def check_taken_rides(request):
     taken_rides = Ride.objects.filter(driver=request.user).exclude(
         ride_status="cop").order_by('ride_status')
     if taken_rides.exists() == False:
-        return render(request, "no_taken_rides.html")
+        return render(request, "Ride_Share/no_taken_rides.html")
     page = request.GET.get('page', 1)
     paginator = Paginator(taken_rides, 3)
     try:
@@ -384,7 +388,7 @@ def check_taken_rides(request):
         taken_rides = paginator.page(1)
     except EmptyPage:
         taken_rides = paginator.page(paginator.num_pages)
-    return render(request, "taken_rides.html", context={'taken_rides': taken_rides})
+    return render(request, "Ride_Share/taken_rides.html", context={'taken_rides': taken_rides})
 
 
 @login_required(login_url='../accounts/login/')
@@ -403,13 +407,13 @@ def taken_ride_detail(request, take_ride_id):
     pickup_time = taken_ride.pickup_time
 
     if taken_ride.sharable == True:
-        return render(request, 'taken_ride_detail_sharer.html', 
+        return render(request, 'Ride_Share/taken_ride_detail_sharer.html', 
                     context={'owner_name': owner_name, 'sharer': sharer, 
                             'destination': destination, 'num_pass':num_pass, 
                             'num_sharer_pass':num_sharer_pass,'num_owner_pass': num_owner_pass,
                             'ride_status':ride_status, 'pickup_time': pickup_time})
     else:
-         return render(request, 'taken_ride_detail_no_sharer.html', 
+         return render(request, 'Ride_Share/taken_ride_detail_no_sharer.html', 
                     context={'owner_name': owner_name,
                                 'destination': destination,
                                 'num_pass':num_pass,
@@ -455,7 +459,7 @@ def complete_ride(request, take_ride_id):
             sharer_emails,
             fail_silently=False,
         )
-    return render(request, "successfully_complete.html")
+    return render(request, "Ride_Share/successfully_complete.html")
 
 
 @login_required(login_url='../accounts/login/')
@@ -482,7 +486,7 @@ def cancel_owner_ride(request, ride_id):
             fail_silently=False,
         )        
     Ride.objects.filter(ride_id=ride_id).delete()
-    return render(request, 'cancelled_successfully.html')
+    return render(request, 'Ride_Share/cancelled_successfully.html')
 
 
 @login_required(login_url='../accounts/login/')
@@ -502,7 +506,7 @@ def sharing_ride_detail(request, ride_id):
     ride_status = REVERSE_RIDE_STATUS_[sharing_ride_detail.ride_status]
 
 
-    return render(request, 'sharing_ride_detail.html', 
+    return render(request, 'Ride_Share/haring_ride_detail.html', 
                 context={'owner_name': owner_name, 'driver': driver,
                             'destination': destination, 'num_pass':num_pass, 
                             'num_sharer_pass':num_sharer_pass,
@@ -520,10 +524,10 @@ def edit_sharing_ride(request, ride_id):
             ride.actual_pass_num = ride.owner_pass_num + new_sharing_pass_num
             ride.avail_seats = VT2CAP[ride.vehicle_type] - 1 - ride.actual_pass_num
             ride.save()
-            return render(request, 'edit_successfully_sharer.html')
+            return render(request, 'Ride_Share/edit_successfully_sharer.html')
     else:
         form = sharerEdittingForm(initial={'new_passenger_number': ride.actual_pass_num - ride.owner_pass_num}, ride=ride)    
-    return render(request, 'edit_sharer_ride.html', {'form': form, 'ride':ride})
+    return render(request, 'Ride_Share/edit_sharer_ride.html', {'form': form, 'ride':ride})
     
 @login_required(login_url='../accounts/login/')
 def cancel_sharing_ride(request, ride_id):
@@ -541,7 +545,7 @@ def cancel_sharing_ride(request, ride_id):
     ride.avail_seats = VT2CAP[ride.vehicle_type] - 1 - ride.actual_pass_num
     ride.share_id = None
     ride.save()
-    return render(request, 'cancelled_successfully_sharer.html')
+    return render(request, 'Ride_Share/cancelled_successfully_sharer.html')
     pass
 
 
@@ -549,7 +553,7 @@ def cancel_sharing_ride(request, ride_id):
 def check_taken_rides_history(request):
     taken_rides = Ride.objects.filter(driver=request.user, ride_status="cop").order_by('pickup_time')
     if taken_rides.exists() == False:
-        return render(request, "no_taken_rides.html")
+        return render(request, "Ride_Share/no_taken_rides.html")
     page = request.GET.get('page', 1)
     paginator = Paginator(taken_rides, 3)
     try:
@@ -558,6 +562,6 @@ def check_taken_rides_history(request):
         taken_rides = paginator.page(1)
     except EmptyPage:
         taken_rides = paginator.page(paginator.num_pages)
-    return render(request, "taken_rides_history.html", context={'taken_rides': taken_rides})
+    return render(request, "Ride_Share/taken_rides_history.html", context={'taken_rides': taken_rides})
 
 
