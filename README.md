@@ -1,4 +1,4 @@
-# Django Web-App: Ride Sharing Service (HW1 for ECE 568 ERSS 2020 Spring)
+# Django Web-App: Ride Sharing Service
 
 By Wenge Xie, Chixiang Zhang
 
